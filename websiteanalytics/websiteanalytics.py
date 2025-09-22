@@ -6,14 +6,25 @@ from websiteanalytics.pages.signup import signup
 from websiteanalytics.components.navbar import navbar
 from websiteanalytics.pages.about import about
 from websiteanalytics.pages.contact import contact
+from websiteanalytics.pages.analyticalpage import analyticalpage
+
 def index():
     return rx.vstack(
         navbar(),
         rx.heading("Welcome to E-commerce!"),
         rx.text("Use the navbar to explore pages"),
+        spacing="4",
+        align="center",
     )
 
-app = rx.App()
+# Apply global styles here
+app = rx.App(
+    style={
+        "backgroundColor": "white",   # global background
+        "color": "black",             # default text color
+    }
+)
+
 app.add_page(index, route="/")
 app.add_page(home, route="/home")
 app.add_page(shop, route="/shop")
@@ -21,3 +32,4 @@ app.add_page(about, route="/about")
 app.add_page(contact, route="/contact")
 app.add_page(signin, route="/signin")
 app.add_page(signup, route="/signup")
+app.add_page(analyticalpage, route="/analyticalpage")

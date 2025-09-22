@@ -1,14 +1,20 @@
 # test_firestore.py
-from firebase.firebase_config import db
+import hashlib
+from firebase_config import db
 
-# Reference a collection and document
-doc_ref = db.collection("analytics").document("pageViews")
+# Admin credentials
+email = "dvsteja2@gmail.com"
+password = "Saiteja@4329"
+hashed_password = hashlib.sha256(password.encode()).hexdigest()
 
-# Add sample data
-doc_ref.set({
-    "page1": 5,
-    "page2": 10,
-    "page3": 15
+# Reference to the admin collection
+admin_ref = db.collection("admin").document(email)
+
+# Add admin data
+admin_ref.set({
+    "email": email,
+    "password": hashed_password,
+    "role": "admin"
 })
 
-print("Data added to Firestore successfully!")
+print("Admin user added to Firestore successfully!")

@@ -1,4 +1,5 @@
 import reflex as rx
+from websiteanalytics.pages.signin import SigninState
 
 def navbar():
     # Define a professional color palette
@@ -62,7 +63,21 @@ def navbar():
             font_weight="bold",
             transition="background-color 0.3s ease-in-out"
         ),
-        
+        rx.cond(
+            SigninState.is_authenticated,
+            rx.button(
+                "Sign Out",
+                on_click=SigninState.signout,
+                padding="8px 16px",
+                bg="#e74c3c",
+                color="white",
+                border_radius="4px",
+                _hover={"bg": "#c0392b"},
+                font_weight="bold",
+                transition="background-color 0.3s ease-in-out"
+            ),
+            None
+        ),
         spacing="6",
         padding="16px 24px",
         bg=bg_color,

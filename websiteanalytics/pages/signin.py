@@ -1,13 +1,13 @@
 import reflex as rx
-from websiteanalytics.components.navbar import navbar
 import hashlib
 from ..firebase.firebase_config import db
-
+from websiteanalytics.pages.analyticalpage import AnalyticsState as AnalyticalPageState
 # Your state class
 class SigninState(rx.State):
     email: str = ""
     password: str = ""
     message: str = ""
+    is_authenticated:  bool = False
 
     def check_user(self):
         if not (self.email and self.password):
@@ -26,10 +26,20 @@ class SigninState(rx.State):
         if user_data.get("password") != hashed_password:
             self.message = "Invalid email or password!"
             return
-
+        self.is_authenticated = True
         self.message = "Sign in successful!"
 
+        AnalyticalPageState.start_session(self.email)
+
+    def signout(self):
+        AnalyticalPageState.end_session(self.email)
+        self.is_authenticated = False
+        self.email = ""
+        self.password = ""
+        self.message = "Signed out successfully!"
+
 def signin_page():
+    from websiteanalytics.components.navbar import navbar
     return rx.vstack(
         navbar(),
         rx.input(
@@ -44,5 +54,5 @@ def signin_page():
             on_change=SigninState.set_password,
         ),
         rx.button("Sign In", on_click=SigninState.check_user),
-        rx.text(SigninState.message, color="red"),  # <-- Use the state variable directly
+        rx.text(SigninState.message, color="red"),
     )
