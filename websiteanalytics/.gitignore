@@ -1,0 +1,9 @@
+# Virtual environment
+.venv/
+
+# Firebase secret
+websiteanalytics/firebase/serviceAccountKey.json
+
+# Python cache
+__pycache__/
+*.pyc
