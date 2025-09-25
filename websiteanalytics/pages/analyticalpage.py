@@ -3,6 +3,7 @@ import hashlib
 from websiteanalytics.firebase.firebase_config import db
 import time
 from datetime import datetime
+import uuid
 
 class AnalyticsState(rx.State):
     session_id: str = ""
@@ -12,16 +13,17 @@ class AnalyticsState(rx.State):
     current_user: str = ""
 
     def start_session(self, user_email: str):
-        self.session_id = f"{user_email}_{int(time.time())}"
-        self.login_time = time.time()
+        now = datetime.utcnow()
+        self.session_id = f"{user_email}_{now.strftime('%Y%m%d%H%M%S%f')}"
+        self.login_time = now.timestamp()
         self.current_user = user_email
-        
+
         print(f"Starting new session: {self.session_id} for user: {user_email}")
 
         db.collection("analytics").document(self.session_id).set({
             "user_email": user_email,
             "login_time": self.login_time,
-            "session_start": time.time()
+            "session_start": self.login_time
         })
     
     def start_page_tracking(self, page_name: str, user_email: str):
@@ -108,6 +110,64 @@ class AnalyticsState(rx.State):
         except Exception as e:
             print(f"Error ending session: {e}")
 
+    def start_anon_session(self):
+        anon_session_id = get_anonymous_session_id()
+        now = datetime.utcnow()
+        self.session_id = anon_session_id
+        self.login_time = now.timestamp()
+        self.current_user = "anonymous"
+
+        print(f"Starting anonymous session: {self.session_id}")
+
+        db.collection("analytics").document(self.session_id).set({
+            "user_email": "anonymous",
+            "is_anonymous": True,
+            "login_time": self.login_time,
+            "session_start": self.login_time
+        })
+
+    def start_anon_page_tracking(self, page_name: str):
+        if not self.session_id or self.current_user != "anonymous":
+            print("No anonymous session. Starting new anonymous session.")
+            self.start_anon_session()
+
+        if self.current_page and self.page_start_time:
+            print(f"Saving time for previous page: {self.current_page}")
+            self._save_page_time("anonymous")
+
+        self.current_page = page_name
+        self.page_start_time = time.time()
+        print(f"Starting tracking for page: {page_name}, anonymous user")
+        self._record_page_visit(page_name, "anonymous")
+
+    def end_anon_session(self):
+        if not self.session_id:
+            print("No anonymous session to end")
+            return
+
+        try:
+            if self.current_page and self.page_start_time:
+                self._save_page_time("anonymous")
+
+            total_time_seconds = time.time() - self.login_time
+            total_time_minutes = round(total_time_seconds / 60, 2)
+
+            db.collection("analytics").document(self.session_id).set({
+                "logout_time": time.time(),
+                "total_session_time_minutes": total_time_minutes
+            }, merge=True)
+
+            print(f"Anonymous session ended, total time: {total_time_minutes} minutes")
+
+            self.current_page = ""
+            self.page_start_time = 0
+            self.login_time = 0
+            self.session_id = ""
+            self.current_user = ""
+
+        except Exception as e:
+            print(f"Error ending anonymous session: {e}")
+
 class AdminLoginState(rx.State):
     email: str = ""
     password: str = ""
@@ -137,6 +197,14 @@ class AdminLoginState(rx.State):
         else:
             self.message = "No admin found with this email"
 
+    # Example logout handler
+    def logout(self):
+        AnalyticsState.end_session(self.email)  # <-- Always call this!
+        self.email = ""
+        self.password = ""
+        self.is_authenticated = False
+        # ...other cleanup...
+
 class AnalyticsDashboardState(rx.State):
     all_analytics_data: list = []
     filtered_analytics_data: list = []
@@ -155,6 +223,8 @@ class AnalyticsDashboardState(rx.State):
     page_visits_data: list = []
     user_sessions_data: list = []
     time_spent_data: list = []
+
+    anonymous_sessions_count: int = 0
 
     def set_filter_user(self, user: str):
         self.filter_user = user
@@ -299,6 +369,9 @@ class AnalyticsDashboardState(rx.State):
             
             self.all_analytics_data = data
             self.total_data_count = len(data)
+            self.anonymous_sessions_count = sum(
+                1 for session in data if session.get("user_email") == "anonymous"
+            )
             print(f"📊 Total sessions loaded: {self.total_data_count}")
             
             self._apply_filters()
@@ -518,6 +591,9 @@ class AnalyticsDashboardState(rx.State):
         print("🧹 Filters cleared")
         self._apply_filters()
         self._prepare_chart_data()  
+
+    def get_anonymous_sessions(self):
+        return [s for s in self.all_analytics_data if s.get("user_email") == "anonymous"]
 
 def analyticalpage():
     return rx.cond(
@@ -867,6 +943,42 @@ def analyticalpage():
                 spacing="3"
             ),
             
+            # Anonymous User Stats Section
+            rx.box(
+                rx.vstack(
+                    rx.heading("🕵️ Anonymous User Analytics", size="5", color="#2c3e50"),
+                    rx.text(
+                        f"Anonymous Sessions: {AnalyticsDashboardState.anonymous_sessions_count}",
+                        font_size="xl",
+                        color="#e67e22",
+                        font_weight="bold"
+                    ),
+                    rx.button(
+                        "Show Only Anonymous Sessions",
+                        on_click=lambda: AnalyticsDashboardState.set_filter_user("anonymous"),
+                        bg="#e67e22",
+                        color="white",
+                        size="2"
+                    ),
+                    rx.button(
+                        "Show All Sessions",
+                        on_click=AnalyticsDashboardState.clear_filters,
+                        bg="#3498db",
+                        color="white",
+                        size="2"
+                    ),
+                    spacing="3",
+                    align="center"
+                ),
+                bg="linear-gradient(135deg, #fffbe6 0%, #ffe0b2 100%)",
+                padding="20px",
+                border_radius="15px",
+                border="2px solid #ffe0b2",
+                box_shadow="0 2px 8px rgba(0,0,0,0.07)",
+                width="100%",
+                margin_bottom="20px"
+            ),
+
             spacing="8",
             align="center",
             padding="30px",
@@ -912,3 +1024,7 @@ def analyticalpage():
             bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
         )
     )
+
+def get_anonymous_session_id():
+    # This is a simple Python-side generator; for real persistence, use browser localStorage via JS bridge if needed
+    return f"anon_{uuid.uuid4().hex}_{int(time.time())}"
