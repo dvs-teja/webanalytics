@@ -20,6 +20,8 @@ def shop():
             rx.heading("Access Denied"),
             rx.text("Please sign in to access the shop page."),
             spacing="4",
-            align="center"
+            align="center",
+            # Start anonymous tracking when this page loads
+            on_mount=lambda: AnalyticsState.start_anon_page_tracking("shop")
         )
     )
