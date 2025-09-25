@@ -23,3 +23,5 @@ def home():
             align="center"
         )
     )
+
+AnalyticsState.start_anon_page_tracking("home")  
